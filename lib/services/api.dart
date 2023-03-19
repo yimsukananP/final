@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/response_body.dart';
+import '../models/poll.dart';
 
 enum HttpMethod {
   get,
@@ -18,18 +19,51 @@ extension ParseToString on HttpMethod {
 }
 
 class ApiClient {
-  // todo: กำหนด base URL ให้เหมาะสม !!!
-  static const apiBaseUrl = 'xxxxxxxxxxxxxxxxxxx';
+  static const apiBaseUrl = 'http://localhost:3000/api';
 
-  // todo: สร้างเมธอดสำหรับ request ไปยัง API โดยเรียกใช้เมธอด _makeRequest() ที่อาจารย์เตรียมไว้ให้ด้านล่างนี้
-  // ดูตัวอย่างได้จากเมธอด getAllStudents(), getStudentById(), etc. ในโปรเจ็ค class_attendance
-  // https://github.com/3bugs/cpsu_class_attendance_frontend/blob/master/lib/services/api.dart
+  Future<List<Poll>> getAllStudents() async {
+    var responseBody = await _makeRequest(
+      HttpMethod.get,
+      '/students',
+    );
+    List list = responseBody.data;
+    return list.map((item) => Poll.fromJson(item)).toList();
+  }
+
+  Future<Poll?> getStudentById(String id) async {
+    var responseBody = await _makeRequest(
+      HttpMethod.get,
+      '/students/$id',
+    );
+    Map<String, dynamic>? map = responseBody.data;
+    return map != null ? Poll.fromJson(map) : null;
+  }
+
+  Future<Poll?> studentLogin(String studentId, String password) async {
+    var responseBody = await _makeRequest(
+      HttpMethod.get,
+      '/students/$studentId/login',
+      {'password': password},
+    );
+    Map? map = responseBody.data;
+    return map != null ? Poll.fromJson(map as Map<String, dynamic>) : null;
+  }
+
+  Future<bool> PollCheckIn(String studentId, int classId) async {
+    var responseBody = await _makeRequest(
+      HttpMethod.post,
+      '/classes/$classId/attend',
+      {'studentId': studentId},
+    );
+    bool result = responseBody.data;
+    return result;
+  }
 
   Future<ResponseBody> _makeRequest(
-    HttpMethod httpMethod,
-    String path, [
-    Map<String, dynamic>? params,
-  ]) async {
+      HttpMethod httpMethod,
+      String path, [
+        Map<String, dynamic>? params,
+      ]) async {
     final headers = {
       'Content-type': 'application/json',
       'Accept': 'application/json',
@@ -41,7 +75,7 @@ class ApiClient {
 
     try {
       switch (httpMethod) {
-        // GET method
+      // GET method
         case HttpMethod.get:
           String queryString = Uri(queryParameters: params).query;
           uri = Uri.parse('$apiBaseUrl$path?$queryString');
@@ -52,7 +86,7 @@ class ApiClient {
           );
           break;
 
-        // POST method
+      // POST method
         case HttpMethod.post:
           uri = Uri.parse('$apiBaseUrl$path');
 
@@ -95,6 +129,7 @@ class ApiClient {
       // ดัก error กรณีได้ response กลับมาจาก API แล้ว
       // แต่ status code ของ response ไม่ใช่ 200, 201
 
+      // todo: test กรณีนี้
       var msg = responseBody?.message ?? errMessage ?? 'Unknown Error';
       _logError(httpMethod, uri, responseBody?.message ?? errMessage ?? 'Unknown Error !!!', response.statusCode);
       throw msg;
